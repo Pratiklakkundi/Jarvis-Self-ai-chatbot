@@ -10,31 +10,48 @@ class VectorService:
         self.index_name = os.getenv("PINECONE_INDEX_NAME", "jarvis-knowledge")
         
         # Initialize embedding model
+        print("🔄 Loading embedding model...")
         self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        print("✅ Embedding model loaded successfully")
         
-        # Initialize Pinecone only if API key is provided
-        if self.api_key:
+        # Initialize Pinecone only if API key is provided and valid
+        if self.api_key and self.api_key != "your_pinecone_api_key_here":
             try:
+                print("🔄 Connecting to Pinecone...")
                 self.pc = Pinecone(api_key=self.api_key)
                 
-                # Create index if it doesn't exist
+                # Test connection by listing indexes
                 existing_indexes = [index.name for index in self.pc.list_indexes()]
+                
+                # Create index if it doesn't exist
                 if self.index_name not in existing_indexes:
+                    print(f"🔄 Creating Pinecone index: {self.index_name}")
                     self.pc.create_index(
                         name=self.index_name,
                         dimension=384,  # all-MiniLM-L6-v2 dimension
                         metric="cosine",
                         spec=ServerlessSpec(cloud="aws", region="us-east-1")
                     )
+                    print(f"✅ Created Pinecone index: {self.index_name}")
+                else:
+                    print(f"✅ Using existing Pinecone index: {self.index_name}")
                 
                 self.index = self.pc.Index(self.index_name)
                 print("✅ Pinecone vector database connected successfully")
+                
             except Exception as e:
                 print(f"❌ Pinecone connection failed: {str(e)}")
+                print("💡 Tip: Check your API key in the .env file")
+                print("💡 Get a free API key at: https://www.pinecone.io/")
                 self.index = None
         else:
             self.index = None
-            print("⚠️  Pinecone not configured. Vector search will be limited.")
+            if not self.api_key:
+                print("⚠️  No Pinecone API key found in environment")
+            else:
+                print("⚠️  Please update PINECONE_API_KEY in your .env file")
+            print("💡 The assistant will work without Pinecone but won't remember conversations")
+            print("💡 Run 'python setup_assistant.py' for guided setup")
     
     def _generate_embedding(self, text: str) -> List[float]:
         """Generate embedding for text"""
